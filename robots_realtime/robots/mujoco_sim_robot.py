@@ -1,4 +1,4 @@
-"""MuJoCo simulation robot that implements the i2rt Robot protocol.
+"""MuJoCo simulation robots implementing the Robot protocol.
 
 Wraps a MuJoCo model and provides forward-kinematics visualization
 driven by joint position commands. Optionally launches a passive viewer.
@@ -9,6 +9,7 @@ from typing import Dict, Optional
 import mujoco
 import mujoco.viewer
 import numpy as np
+
 from robots_realtime.robots.protocol import Robot
 
 
@@ -105,3 +106,74 @@ class MujocoSimRobot(Robot):
     def close(self) -> None:
         if self.viewer is not None:
             self.viewer.close()
+
+
+class PandaMujocoSimRobot(MujocoSimRobot):
+    """A Franka Panda in MuJoCo, driven by the 8-vector the Franka agents send.
+
+    The MuJoCo Menagerie Panda has 9 position DOFs — 7 arm joints plus two
+    independently actuated fingers — while ``FrankaPyrokiViserAgent`` (and the
+    ``panda_description`` URDF the Viser overlay renders) speaks 8: the arm
+    joints plus one gripper value. This maps between the two by driving both
+    fingers from that single value, so the sim can stand in for the real arm in
+    any session config without the agent knowing the difference.
+
+    Args:
+        xml_path: MJCF to load. Defaults to the Menagerie Panda that
+            ``robot_descriptions`` downloads and caches.
+        render: Launch a passive MuJoCo viewer window. Needs a display —
+            set false when running headless.
+    """
+
+    _N_ARM_JOINTS = 7
+    _FINGER_JOINTS = ("finger_joint1", "finger_joint2")
+
+    def __init__(self, xml_path: Optional[str] = None, render: bool = True) -> None:
+        if xml_path is None:
+            from robot_descriptions import panda_mj_description  # noqa: PLC0415
+
+            xml_path = panda_mj_description.MJCF_PATH
+        super().__init__(xml_path=xml_path, render=render, gripper_index=None)
+
+        self._arm_qpos_adr = np.array(
+            [self.model.jnt_qposadr[i] for i in range(self._N_ARM_JOINTS)], dtype=int
+        )
+        self._finger_qpos_adr = []
+        for name in self._FINGER_JOINTS:
+            jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            if jid < 0:
+                raise ValueError(f"{xml_path} has no joint {name!r}; is this the Menagerie Panda?")
+            self._finger_qpos_adr.append(self.model.jnt_qposadr[jid])
+            self._finger_range = self.model.jnt_range[jid]
+
+    def num_dofs(self) -> int:
+        return self._N_ARM_JOINTS + 1
+
+    def get_joint_pos(self) -> np.ndarray:
+        return np.concatenate(
+            [self.data.qpos[self._arm_qpos_adr], self.data.qpos[self._finger_qpos_adr[:1]]]
+        )
+
+    def command_joint_pos(self, joint_pos: np.ndarray) -> None:
+        joint_pos = np.asarray(joint_pos, dtype=np.float64)
+        if joint_pos.shape != (self.num_dofs(),):
+            raise ValueError(f"expected {self.num_dofs()} joint values, got {joint_pos.shape}")
+        self.data.qpos[self._arm_qpos_adr] = joint_pos[: self._N_ARM_JOINTS]
+        # One commanded width drives both fingers; the agent's gripper slider is
+        # not clamped to the model's finger travel, so clip rather than let
+        # MuJoCo render an impossible pose.
+        width = float(np.clip(joint_pos[-1], self._finger_range[0], self._finger_range[1]))
+        for adr in self._finger_qpos_adr:
+            self.data.qpos[adr] = width
+
+        mujoco.mj_kinematics(self.model, self.data)
+        if self.viewer is not None and self.viewer.is_running():
+            self.viewer.sync()
+
+    def get_observations(self) -> Dict[str, np.ndarray]:
+        return {
+            "joint_pos": self.get_joint_pos(),
+            "joint_vel": np.concatenate(
+                [self.data.qvel[: self._N_ARM_JOINTS], np.zeros(1)]
+            ),
+        }

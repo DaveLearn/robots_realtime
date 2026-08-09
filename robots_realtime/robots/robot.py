@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
 
 import numpy as np
-from robots_realtime.robots.protocol import Robot
-from robots_realtime.robots.protocol import JointMapper
+
+from robots_realtime.robots.protocol import JointMapper, Robot
 
 # RPC Method Serialization Requirements.
 ROBOT_PROTOCOL_METHODS = {

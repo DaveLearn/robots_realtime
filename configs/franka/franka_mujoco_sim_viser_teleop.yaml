@@ -1,0 +1,34 @@
+# Single Panda in MuJoCo, no hardware. Drag the Viser gizmo, PyRoKi solves IK,
+# and the pose shows up in both the browser and a MuJoCo viewer window.
+#
+#   pixi run rr-session configs/franka/franka_mujoco_sim_viser_teleop.yaml
+#
+# Viser: http://localhost:8765 — the MuJoCo window opens on its own and needs a
+# display. On a headless box, set `render: false` in the robot config and use
+# the browser view only.
+version: "1"
+
+session:
+  save_root: recordings
+
+nodes:
+  - type: ViserTeleopNode
+    name: franka_viser
+    agent_class: robots_realtime.agents.teleoperation.franka_pyroki_viser_agent:FrankaPyrokiViserAgent
+    agent_kwargs:
+      viser_port: 8765
+      ik_rate: 100.0
+      visualize_rgbd: false
+    arm_key: left
+    ik_freq: 100.0
+    viz_freq: 20.0
+    state_topics:
+      left: franka/joint_state       # "left" so _extract_joint_pos finds it
+
+  - type: RobotNode
+    name: franka
+    robot_config: robot_configs/franka/franka_mujoco_sim.yaml
+    cmd_topic: franka_viser/joint_pos
+    # Nothing to park in sim, and the default parking pose is a 7-vector while
+    # this robot is 8-DOF (arm + gripper).
+    shutdown_joint_pos: null

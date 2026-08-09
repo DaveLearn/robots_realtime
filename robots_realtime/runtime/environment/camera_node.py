@@ -32,7 +32,6 @@ import numpy as np
 from robots_realtime.runtime.node import Node, NodeRole
 from robots_realtime.sensors.cameras.camera import CameraData, CameraDriver
 
-
 _CAMERA_DRIVER_REGISTRY: dict[str, str] = {
     "ZedCamera":        "robots_realtime.sensors.cameras.zed_camera:ZedCamera",
     "OpenCVCamera":     "robots_realtime.sensors.cameras.opencv_camera:OpenCVCamera",

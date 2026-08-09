@@ -1,0 +1,7 @@
+# Kinematic stand-in for a Franka Panda: accepts joint commands and echoes them
+# back as state, so a session runs with no hardware attached. The visualization
+# is the Viser URDF view driven by the IK agent.
+# 8 DOF = 7 panda arm joints + 1 gripper, matching FrankaPyrokiViserAgent.
+_target_: robots_realtime.robots.robot.PrintRobot
+num_dofs: 8
+dont_print: true

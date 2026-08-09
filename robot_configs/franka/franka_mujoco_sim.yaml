@@ -1,0 +1,5 @@
+# Franka Panda in MuJoCo (Menagerie model, fetched + cached by robot_descriptions).
+# Forward kinematics only — commands set qpos directly, there is no physics step.
+# render: true opens a passive MuJoCo viewer window; set false when headless.
+_target_: robots_realtime.robots.mujoco_sim_robot.PandaMujocoSimRobot
+render: true

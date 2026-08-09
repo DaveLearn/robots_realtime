@@ -30,7 +30,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-
 # ── Node registry ─────────────────────────────────────────────────────────────
 
 _NODE_REGISTRY: dict[str, str] = {
@@ -63,8 +62,8 @@ def _resolve_node_cls(type_name: str):
 
 def _make_writer_for_node(node_cls, node_params: dict):
     """Return an appropriate Writer for the given node type."""
-    from robots_realtime.runtime.recording import McapWriter, AsyncMp4Writer, NullWriter
     from robots_realtime.runtime.node import NodeRole
+    from robots_realtime.runtime.recording import AsyncMp4Writer, McapWriter, NullWriter
 
     # XdofSimNode manages its own writers — give it NullWriter
     type_name = node_params.get("type", "")
@@ -119,6 +118,7 @@ def _resolve_policy_name(save_root_template: str, nodes_cfg: list[dict]) -> str:
             continue
         try:
             import websockets.sync.client  # noqa: PLC0415
+
             from robots_realtime.policy_client import msgpack_numpy  # noqa: PLC0415
 
             uri = f"ws://{ip}:{port}"

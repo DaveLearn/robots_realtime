@@ -226,7 +226,10 @@ class FrankaOscClientCartesianAgent(Agent):
                             point_size=0.002,
                         )
 
-                time.sleep(self._update_period)
+            # Must be outside the `if rgb_images` branch: with no cameras in the
+            # session this loop would otherwise spin without ever yielding, and
+            # the GIL starves the IK thread and the viser server.
+            time.sleep(self._update_period)
 
     # ------------------------------------------------------------------
     # Agent interface
