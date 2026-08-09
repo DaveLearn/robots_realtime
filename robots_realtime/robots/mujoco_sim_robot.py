@@ -4,6 +4,8 @@ Wraps a MuJoCo model and provides forward-kinematics visualization
 driven by joint position commands. Optionally launches a passive viewer.
 """
 
+import logging
+import os
 from typing import Dict, Optional
 
 import mujoco
@@ -11,6 +13,8 @@ import mujoco.viewer
 import numpy as np
 
 from robots_realtime.robots.protocol import Robot
+
+logger = logging.getLogger(__name__)
 
 
 class MujocoSimRobot(Robot):
@@ -43,8 +47,18 @@ class MujocoSimRobot(Robot):
         self._nq = self.model.nq
         self._num_dofs = self._nq + (1 if gripper_index is not None else 0)
 
-        # Optionally launch viewer
+        # Optionally launch viewer. MuJoCo's viewer calls exit() from C if GLFW
+        # can't initialize, which kills the whole node process and leaves the
+        # session running with a robot that never publishes state — so check for
+        # a display up front rather than letting it fail. Same headless test the
+        # ViserMonitorNode uses for browser auto-open.
         self.viewer = None
+        if render and not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            logger.warning(
+                "No DISPLAY/WAYLAND_DISPLAY detected — running the MuJoCo sim headless. "
+                "The robot still runs and publishes state; use the Viser view to see it."
+            )
+            render = False
         if render:
             self.viewer = mujoco.viewer.launch_passive(
                 model=self.model,

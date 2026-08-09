@@ -14,3 +14,4 @@ __pycache__/
 .ruff_cache/
 recordings/
 .pixi
+MUJOCO_LOG.TXT

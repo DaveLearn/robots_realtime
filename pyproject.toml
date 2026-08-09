@@ -27,6 +27,11 @@ dependencies = [
     # pixi.lock pins the resolved jaxls commit instead.
     "pyroki @ git+https://github.com/chungmin99/pyroki.git@59aa21f",
     "matplotlib",
+    # AsyncMp4Writer records through imageio's FFMPEG plugin, which needs the
+    # imageio-ffmpeg wheel, which ships its own static ffmpeg (conda's ffmpeg
+    # would work too, but it drags in libva -> a second copy of libglvnd).
+    "imageio",
+    "imageio-ffmpeg",
     "msgpack",
     "msgpack_numpy",
     # robots_realtime.policy_client (vendored openpi websocket client) needs these.
@@ -62,7 +67,7 @@ sim = [
 # ── pixi ──────────────────────────────────────────────────────────────────────
 # Conventions used below:
 #   * [tool.pixi.dependencies] holds conda packages only — the C/native
-#     libraries you would otherwise apt install (python itself, ffmpeg, GL).
+#     libraries you would otherwise apt install.
 #   * everything Python lives in [project.dependencies] / the pypi tables.
 #   * extras declared in [project.optional-dependencies] become pixi features
 #     of the same name automatically; features for local wheels are defined
@@ -74,15 +79,34 @@ platforms = ["linux-64"]
 
 [tool.pixi.dependencies]
 python = "3.11.*"
-# lerobot / torchcodec decode video through the system ffmpeg libs.
-ffmpeg = "*"
-# OpenGL + EGL runtime for mujoco / opencv / viser mesh rendering.
+# OpenGL from conda, so libGL.so.1 is ABI-consistent with everything else conda
+# built. Note what this does and doesn't provide: libglvnd is the *dispatch*
+# layer, and it still dlopens the machine's own driver vendor library
+# (libGLX_nvidia.so.0 etc.) at context creation, chosen by asking the X server.
+# So conda dispatch + host vendor is the intended, working combination — but the
+# host half has to be there and match the running kernel driver. `pixi run
+# gl-check` prints which vendor actually got loaded.
 libgl-devel = "*"
 libegl-devel = "*"
 libglu = "*"
 # A few PyPI deps ship sdists only (e.g. pyliblzfse) and need a C toolchain
 # at install time — pixi environments don't see the system compiler.
 c-compiler = "*"
+
+# Make MuJoCo load GL through EGL rather than GLX.
+#
+# MuJoCo resolves GL entry points with glad. On the GLX path that fails on some
+# machines — the context is created fine and plain GL calls work, but glad comes
+# back with `gladLoadGL error`, the viewer window appears and vanishes, and
+# because it exits from C there is nothing in the node's Python log. The EGL
+# loader talks to the same NVIDIA driver and the same on-screen context, and
+# works on every machine we have tried, so it is the safer default. It is also
+# the better backend for headless offscreen camera rendering.
+#
+# Override per-run with `MUJOCO_GL=glfw` if a machine ever needs the GLX path.
+# `pixi run gl-check --subprocess` compares the backends.
+[tool.pixi.activation.env]
+MUJOCO_GL = "egl"
 
 [tool.pixi.pypi-dependencies]
 robots_realtime = { path = ".", editable = true }
@@ -108,6 +132,9 @@ mjlab = { features = ["franka_panda", "sim", "mjlab_sim"] }
 session = "rr-session"
 replay = "rr-replay"
 lint = "ruff check ."
+# Prints the resolved GL dispatch/vendor pair — first thing to run when the
+# MuJoCo viewer window flashes and disappears.
+gl-check = "python scripts/gl_check.py"
 fmt = "ruff format ."
 
 [tool.setuptools.packages.find]

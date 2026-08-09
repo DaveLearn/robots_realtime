@@ -38,6 +38,8 @@ class Subscriber:
         self._latest: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        # Set by the drain thread on every arrival; waited on by drain_one().
+        self._new_msg = threading.Event()
 
         self._ctx = zmq.Context.instance()
         self._sock = self._ctx.socket(zmq.SUB)
@@ -55,7 +57,13 @@ class Subscriber:
         self._thread.start()
 
     def _drain_loop(self) -> None:
-        """Background thread: drain socket and keep latest per topic."""
+        """Background thread: drain socket and keep latest per topic.
+
+        This thread is the only reader of ``self._sock``. ZMQ sockets are not
+        thread-safe, and a second thread calling recv on the same socket
+        interleaves frames of a multipart message, which surfaces as
+        ``msgpack.ExtraData`` when the topic frame gets unpacked as a payload.
+        """
         while not self._stop.is_set():
             if self._sock.poll(5):  # 5 ms timeout
                 try:
@@ -64,19 +72,25 @@ class Subscriber:
                         envelope = unpack(parts[1])
                         with self._lock:
                             self._latest[parts[0].decode()] = envelope
+                        self._new_msg.set()
                 except zmq.Again:
                     pass
 
     def drain_one(self, timeout_ms: int = 50) -> bool:
-        """Block up to *timeout_ms* waiting for any new message."""
-        import time
-        deadline = time.monotonic() + timeout_ms / 1000.0
-        while time.monotonic() < deadline:
-            with self._lock:
-                if self._latest:
-                    return True
-            time.sleep(0.001)
-        return False
+        """Block up to *timeout_ms* waiting for a message to arrive.
+
+        Returns True if at least one message landed since the previous call.
+        Several messages arriving in that window coalesce into one wakeup —
+        the buffer is latest-only, so there is nothing extra to consume.
+
+        Waits on an arrival event rather than on the buffer being non-empty:
+        the buffer is never cleared, so once any message had ever been received
+        a non-emptiness test returned immediately forever, turning every
+        subscriber-driven node into a flat-out spinner.
+        """
+        got = self._new_msg.wait(timeout_ms / 1000.0)
+        self._new_msg.clear()
+        return got
 
     def get_latest(self, topic: str) -> dict | None:
         """Return the most recently received envelope for *topic*, or None."""
@@ -97,17 +111,6 @@ class Subscriber:
 
     def close(self) -> None:
         self._stop.set()
+        self._new_msg.set()   # wake any waiter so it doesn't sit out its timeout
         self._thread.join(timeout=1.0)
         self._sock.close(linger=0)
-
-    def drain(self) -> None:
-        """Drain all pending messages from the socket (non-blocking)."""
-        try:
-            while True:
-                parts = self._sock.recv_multipart(zmq.NOBLOCK)
-                if len(parts) >= 2:
-                    envelope = unpack(parts[1])
-                    with self._lock:
-                        self._latest[parts[0].decode()] = envelope
-        except zmq.Again:
-            pass

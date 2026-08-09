@@ -13,6 +13,7 @@ handles START_RECORDING / STOP_RECORDING while node.run() is executing.
 
 from __future__ import annotations
 
+import faulthandler
 import multiprocessing as mp
 import os
 import sys
@@ -25,7 +26,7 @@ from pathlib import Path
 import zmq
 
 from robots_realtime.runtime.perf import PerfStats
-from robots_realtime.runtime.transport.message_bus import DEFAULT_PUB_PORT, DEFAULT_SUB_PORT
+from robots_realtime.runtime.transport.message_bus import DEFAULT_PUB_PORT, DEFAULT_SUB_PORT, _mp_context
 from robots_realtime.runtime.transport.publisher import Publisher
 from robots_realtime.runtime.transport.subscriber import Subscriber
 
@@ -299,8 +300,9 @@ class Node(ABC):
         timeout_ms = int(1000.0 / self.poll_freq) if self.poll_freq else 50
         prev = None
         while not self._stop:
+            # The subscriber's own thread owns the socket and keeps the
+            # latest-per-topic buffer current; this just waits for an arrival.
             self._subscriber.drain_one(timeout_ms=timeout_ms)
-            self._subscriber.drain()   # consume any burst that arrived
             prev = self._timed_step(prev)
             self._tick()
 
@@ -313,6 +315,8 @@ class Node(ABC):
 _CTRL_READY = b"READY"
 _CTRL_STOP  = b"STOP"
 _CTRL_OK    = b"OK"
+
+
 
 
 def _host_worker(
@@ -337,8 +341,18 @@ def _host_worker(
     if log_path is not None:
         Path(log_path).parent.mkdir(parents=True, exist_ok=True)
         _log_file = open(log_path, "w", buffering=1)
+        # Redirect at the file-descriptor level as well as rebinding sys.stdout /
+        # sys.stderr. Native code writes straight to fds 1 and 2 — MuJoCo, GLFW,
+        # Xlib and glibc abort messages all do — so rebinding the Python objects
+        # alone sends those to the session's terminal instead, and a node that
+        # dies inside C leaves a completely empty log to debug from.
+        os.dup2(_log_file.fileno(), 1)
+        os.dup2(_log_file.fileno(), 2)
         sys.stdout = _log_file
         sys.stderr = _log_file
+        # Dump the Python stack into the same log if the process takes a fatal
+        # signal, so a segfault inside a driver says which call was in flight.
+        faulthandler.enable(file=_log_file)
 
     import logging as _logging
     _logging.basicConfig(
@@ -442,8 +456,9 @@ class ProcessHost:
 
     def start(self, timeout: float = 10.0, log_path: Path | None = None) -> None:
         """Spawn subprocess and wait until its control socket is bound."""
-        ready = mp.Event()
-        self._proc = mp.Process(
+        ctx = _mp_context()
+        ready = ctx.Event()
+        self._proc = ctx.Process(
             target=_host_worker,
             args=(self._node, self._ctrl_addr, ready, log_path),
             daemon=True,

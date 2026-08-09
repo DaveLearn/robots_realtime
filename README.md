@@ -31,8 +31,29 @@ A research codebase for real-time robot teleoperation, data collection, and poli
 
 Environments are managed with [pixi](https://pixi.sh); the manifest lives in
 `pyproject.toml` under `[tool.pixi.*]`. Conda packages cover the native
-libraries (Python, ffmpeg, OpenGL, a C toolchain), everything else resolves
-from PyPI.
+libraries (Python, OpenGL, a C toolchain), everything else resolves from PyPI.
+
+The OpenGL that conda installs is libglvnd, the vendor-neutral *dispatch*
+layer. It contains no driver code: at context creation it dlopens the machine's
+own `libGLX_<vendor>.so.0`, which has to be present and to match the running
+kernel driver.
+
+MuJoCo then resolves GL entry points with glad, and the environment sets
+`MUJOCO_GL=egl` so it does that through EGL rather than GLX. The GLX loader
+fails on some machines in a way that is easy to misread: the context is created
+fine and ordinary GL calls work, but glad reports `gladLoadGL error`, so the
+viewer window appears and vanishes — and since that exits from C, nothing lands
+in the node's Python log. EGL drives the same driver and the same on-screen
+context, and it's the better backend for headless offscreen rendering anyway.
+Override with `MUJOCO_GL=glfw` if a machine ever needs GLX.
+
+To see how GL resolves here, and to compare backends in a subprocess the way a
+session node runs one:
+
+```bash
+pixi run gl-check
+pixi run gl-check --subprocess
+```
 
 ```bash
 git clone --recurse-submodules https://github.com/uynitsuj/robots_realtime.git

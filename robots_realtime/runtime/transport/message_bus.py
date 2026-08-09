@@ -14,11 +14,26 @@ Usage (typically via Session):
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import time
 
 
 DEFAULT_PUB_PORT = 5555   # nodes publish  → connect here
 DEFAULT_SUB_PORT = 5556   # nodes subscribe → connect here
+
+
+def _mp_context():
+    """Multiprocessing context used for every subprocess this runtime starts.
+
+    Defaults to fork — it's fast, and node objects the parent built come across
+    for free. Set ``RR_START_METHOD=spawn`` to give each subprocess a fresh
+    interpreter instead. A forked child inherits the parent's whole address
+    space, and some GPU drivers refuse to initialise in a process that inherited
+    their state; that shows up as the MuJoCo viewer dying at `gladLoadGL error`
+    inside a node while the very same code works standalone (which is why
+    `pixi run gl-check`, one plain process, passes).
+    """
+    return mp.get_context(os.environ.get("RR_START_METHOD", "fork"))
 
 
 def _broker_worker(pub_port: int, sub_port: int, ready_event: mp.Event) -> None:
@@ -48,8 +63,9 @@ class MessageBus:
         self._proc: mp.Process | None = None
 
     def start(self, timeout: float = 5.0) -> None:
-        ready = mp.Event()
-        self._proc = mp.Process(
+        ctx = _mp_context()
+        ready = ctx.Event()
+        self._proc = ctx.Process(
             target=_broker_worker,
             args=(self.pub_port, self.sub_port, ready),
             daemon=True,

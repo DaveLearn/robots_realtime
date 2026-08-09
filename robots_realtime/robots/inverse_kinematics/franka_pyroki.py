@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from copy import deepcopy
 from typing import Literal, Optional
@@ -15,6 +16,8 @@ from robots_realtime.robots.inverse_kinematics.pyroki_snippets._solve_ik_vel_cos
     solve_ik_vel_cost as solve_ik_vel_cost,
 )
 from robots_realtime.robots.viser.viser_base import ViserAbstractBase
+
+logger = logging.getLogger(__name__)
 
 
 class FrankaPyroki(ViserAbstractBase):
@@ -48,6 +51,7 @@ class FrankaPyroki(ViserAbstractBase):
         self.has_jitted_left = False
         self.has_jitted_right = False
         self.first_solve = True
+        self._last_logged_target: dict[str, np.ndarray] = {}
 
         description = robot_description or self.DEFAULT_ROBOT_DESCRIPTION
 
@@ -157,6 +161,17 @@ class FrankaPyroki(ViserAbstractBase):
         target_poses = self.get_target_poses()
         if not target_poses:
             return
+
+        # Log gizmo motion. This reads the server-side handle pose, which viser
+        # writes directly when a browser drags the gizmo, so it separates "the
+        # drag never reached the server" from "the drag arrived but the arm
+        # didn't follow" — the two look identical from the browser.
+        for side, pose in target_poses.items():
+            xyz = pose.translation()
+            prev = self._last_logged_target.get(side)
+            if prev is None or float(np.linalg.norm(xyz - prev)) > 0.001:
+                self._last_logged_target[side] = np.asarray(xyz).copy()
+                logger.info("[ik] %s target moved to %s", side, np.round(xyz, 3).tolist())
 
         for side in ("left", "right"):
             if side not in target_poses:
