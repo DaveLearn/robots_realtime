@@ -69,7 +69,7 @@ def _center_crop_and_resize(img: np.ndarray, target_h: int, target_w: int) -> np
     with mode=center_crop are bit-identical to what the policy would produce
     if it received the full-res frame and ran its own preprocessing.
     """
-    from openpi_client.image_tools import resize_with_pad  # noqa: PLC0415
+    from robots_realtime.policy_client.image_tools import resize_with_pad  # noqa: PLC0415
 
     h, w = img.shape[:2]
     side = min(h, w)
@@ -80,7 +80,7 @@ def _center_crop_and_resize(img: np.ndarray, target_h: int, target_w: int) -> np
 
 
 def _resize_with_pad(img: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
-    from openpi_client.image_tools import resize_with_pad  # noqa: PLC0415
+    from robots_realtime.policy_client.image_tools import resize_with_pad  # noqa: PLC0415
     return resize_with_pad(img, target_h, target_w)
 
 

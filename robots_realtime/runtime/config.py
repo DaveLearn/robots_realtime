@@ -119,7 +119,7 @@ def _resolve_policy_name(save_root_template: str, nodes_cfg: list[dict]) -> str:
             continue
         try:
             import websockets.sync.client  # noqa: PLC0415
-            from openpi_client import msgpack_numpy  # noqa: PLC0415
+            from robots_realtime.policy_client import msgpack_numpy  # noqa: PLC0415
 
             uri = f"ws://{ip}:{port}"
             logging.info("Querying policy name from %s ...", uri)

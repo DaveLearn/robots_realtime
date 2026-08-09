@@ -48,9 +48,8 @@ Five inference modes (``inference_mode`` kwarg):
 flat-out). Useful with fast GPUs where flat-out inference re-infers so quickly
 that chunks overlap almost entirely.
 
-OpenPI client imports are done lazily inside ``__init__`` so this module can be
-imported without ``openpi_client`` being installed — it's only required when
-the agent is actually instantiated.
+The openpi websocket client lives in-tree at
+``robots_realtime.policy_client`` (vendored from openpi-client).
 """
 
 import threading
@@ -88,7 +87,7 @@ def _center_crop_and_resize(img: np.ndarray, target_h: int, target_w: int) -> np
     w0 = (w - side) // 2
     cropped = img[h0:h0 + side, w0:w0 + side]
     # Already square — resize_with_pad here adds zero padding, just rescales.
-    from openpi_client.image_tools import resize_with_pad  # noqa: PLC0415
+    from robots_realtime.policy_client.image_tools import resize_with_pad  # noqa: PLC0415
     return resize_with_pad(cropped, target_h, target_w)
 
 
@@ -225,7 +224,7 @@ class AsyncDiffusionAgent(PolicyAgent):
         image_preprocess: ImagePreprocess = "center_crop",
     ) -> None:
         # Validate config first — user-error (bad mode) should surface before
-        # env-error (missing openpi_client).
+        # anything else.
         valid_modes = ("sync", "async", "async_rate_limited", "async_rtc", "temporal_ensemble")
         if inference_mode not in valid_modes:
             raise ValueError(
@@ -246,17 +245,9 @@ class AsyncDiffusionAgent(PolicyAgent):
                 f"max_smoothed_actions ({max_smoothed_actions})"
             )
 
-        # Lazy import — openpi_client is an optional dep; keeps this module
-        # importable for module registry / tests without the client installed.
-        try:
-            from openpi_client import action_chunk_broker, image_tools  # noqa: PLC0415
-            from openpi_client import websocket_client_policy as _websocket_client_policy  # noqa: PLC0415
-            from openpi_client.runtime.agents import policy_agent as _policy_agent  # noqa: PLC0415
-        except ImportError as exc:
-            raise ImportError(
-                "AsyncDiffusionAgent requires `openpi_client`. Install it into this venv "
-                "before instantiating the agent (e.g. `pixi add --pypi openpi-client`)."
-            ) from exc
+        from robots_realtime.policy_client import action_chunk_broker, image_tools  # noqa: PLC0415
+        from robots_realtime.policy_client import policy_agent as _policy_agent  # noqa: PLC0415
+        from robots_realtime.policy_client import websocket_client_policy as _websocket_client_policy  # noqa: PLC0415
 
         self._image_tools = image_tools
 

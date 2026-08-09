@@ -45,16 +45,14 @@ pixi install
 | Environment | Contents |
 | --- | --- |
 | `default` | core stack + Franka Panda (`panda_py` / libfranka 0.10.0) + RealSense + sim |
-| `mjlab` | same, with `mjlab` in place of RealSense for mjlab-backed sim |
+| `sensors` | the above plus the ZED bindings (`pixi run -e sensors ...`; needs the ZED SDK 5.1 installed on the machine) |
+| `mjlab` | core stack with `mjlab` for mjlab-backed sim |
 
-ZED cameras are a special case: the bundled `pyzed` 5.1 wheel declares
-`numpy>=2` while `openpi-client` caps numpy below 2.0, so the two can't be
-co-resolved. Install it ignoring that metadata (which is what the old uv
-override did implicitly):
-
-```bash
-pixi run install-zed
-```
+Everything resolves cleanly with no dependency overrides, which is why the
+openpi websocket client is vendored in-tree at `robots_realtime/policy_client`
+rather than installed from PyPI — the published `openpi-client` wheel pins
+`numpy<2`, and that pin is the only thing that held the whole stack (and the
+ZED bindings, which need numpy≥2) back on numpy 1.26.
 
 ---
 

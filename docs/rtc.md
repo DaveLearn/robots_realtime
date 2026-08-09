@@ -263,4 +263,5 @@ Client side (`~/robots_realtime`):
 | file | what lives there |
 |---|---|
 | `robots_realtime/agents/policy_learning/async_pi0_agent.py` | `AsyncDiffusionAgent` with the four inference modes; RTC prefix capture, padding, EMA delay, chunk-jump log |
+| `robots_realtime/policy_client/` | the websocket client + msgpack-numpy wire codec, vendored from `openpi-client` (its `numpy<2` pin is why we don't depend on the wheel) |
 | `configs/franka/franka_robotiq_client.yaml` | example session wiring |

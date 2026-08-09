@@ -3,8 +3,9 @@
 Mirrors ``async_pi0_agent.AsyncDiffusionAgent`` (chunk buffering + linear-ramp
 smoothing in a background thread) but talks to ``act/scripts/serve_policy.py``
 instead of openpi. The wire protocol is the openpi websocket protocol — both
-sides go through ``openpi_client.{WebsocketClientPolicy, msgpack_numpy}`` —
-because the act server vendors openpi's ``WebsocketPolicyServer``.
+sides go through ``robots_realtime.policy_client``'s ``WebsocketClientPolicy``
+/ ``msgpack_numpy`` — because the act server vendors openpi's
+``WebsocketPolicyServer``.
 
 Four inference modes:
 
@@ -153,16 +154,9 @@ class AsyncRemoteACTAgent(PolicyAgent):
                 f"max_smoothed_actions ({max_smoothed_actions})"
             )
 
-        # Lazy import — openpi-client is the only wire-format dep.
-        try:
-            from openpi_client import action_chunk_broker  # noqa: PLC0415
-            from openpi_client import websocket_client_policy as _websocket_client_policy  # noqa: PLC0415
-            from openpi_client.runtime.agents import policy_agent as _policy_agent  # noqa: PLC0415
-        except ImportError as exc:
-            raise ImportError(
-                "AsyncRemoteACTAgent requires `openpi_client`. Install it into this venv "
-                "before instantiating the agent."
-            ) from exc
+        from robots_realtime.policy_client import action_chunk_broker  # noqa: PLC0415
+        from robots_realtime.policy_client import policy_agent as _policy_agent  # noqa: PLC0415
+        from robots_realtime.policy_client import websocket_client_policy as _websocket_client_policy  # noqa: PLC0415
 
         self._client = _websocket_client_policy.WebsocketClientPolicy(host=ip, port=port)
 

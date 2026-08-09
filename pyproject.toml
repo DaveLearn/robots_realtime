@@ -16,7 +16,7 @@ dependencies = [
     "dm-env==1.6",
     "dm_control==1.0.30",
     "dotdict==0.1",
-    "numpy==1.26.4",
+    "numpy>=2.0",
     "opencv-python",
     "robot_descriptions",
     "yourdfpy",
@@ -29,6 +29,9 @@ dependencies = [
     "matplotlib",
     "msgpack",
     "msgpack_numpy",
+    # robots_realtime.policy_client (vendored openpi websocket client) needs these.
+    "websockets>=11.0",
+    "pillow>=9.0",
     "minimalmodbus",
     "uvicorn",
     "fastapi",
@@ -39,7 +42,6 @@ dependencies = [
     "mcap>=1.3.1",
     "mcap-protobuf-support>=0.5.4",
     "protobuf>=6.33.1",
-    "openpi-client==0.1.2",
 ]
 
 [project.scripts]
@@ -90,16 +92,16 @@ robots_realtime = { path = ".", editable = true }
 [tool.pixi.feature.franka_panda.pypi-dependencies]
 panda_python = { path = "dependencies/panda_py_0.7.5_libfranka_0.10.0/panda_python-0.7.5+libfranka.0.10.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" }
 
-# The ZED bindings are deliberately NOT a resolved dependency: the pyzed 5.1
-# wheel declares numpy>=2, while openpi-client caps numpy below 2.0, so the two
-# cannot be co-resolved. uv papered over this with an override; pixi has none.
-# Install it into the environment ignoring that metadata instead:
-#     pixi run install-zed
-# numpy 1.26 is what the rest of the stack (and the previous uv env) uses.
+# ZED SDK python bindings — local wheel, matched to the installed ZED SDK 5.1.
+# Kept out of the default environment because importing it requires the ZED SDK
+# itself to be installed on the machine.
+[tool.pixi.feature.sensors.pypi-dependencies]
+pyzed = { path = "dependencies/pyzed-5.1-cp311-cp311-linux_x86_64.whl" }
 
 [tool.pixi.environments]
 # Franka is the hardware we actually run, so it's in the default environment.
 default = { features = ["franka_panda", "sim", "realsense"], solve-group = "main" }
+sensors = { features = ["franka_panda", "sim", "realsense", "sensors"], solve-group = "main" }
 mjlab = { features = ["franka_panda", "sim", "mjlab_sim"] }
 
 [tool.pixi.tasks]
@@ -107,7 +109,6 @@ session = "rr-session"
 replay = "rr-replay"
 lint = "ruff check ."
 fmt = "ruff format ."
-install-zed = "python -m pip install --no-deps --force-reinstall dependencies/pyzed-5.1-cp311-cp311-linux_x86_64.whl"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -159,7 +160,9 @@ lint.ignore = [
     "RUF009"
 ]
 lint.extend-select = ["E501"]
-exclude = ["*.ipynb", "dependencies/*"]
+# policy_client is vendored verbatim from openpi-client; keep it lint-clean of
+# our rules so re-syncing with upstream stays a clean diff.
+exclude = ["*.ipynb", "dependencies/*", "robots_realtime/policy_client/*"]
 
 [tool.ruff.format]
 docstring-code-format = true
