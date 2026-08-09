@@ -90,8 +90,8 @@ class RealSenseCamera(CameraDriver):
             import pyrealsense2 as rs  # noqa: PLC0415
         except ImportError as exc:
             raise ImportError(
-                "RealSenseCamera requires `pyrealsense2`. Install it into this venv "
-                "(e.g. `uv pip install pyrealsense2`)."
+                "RealSenseCamera requires `pyrealsense2`, which ships in the `realsense` "
+                "feature of the default pixi environment — try `pixi install`."
             ) from exc
 
         self._rs = rs

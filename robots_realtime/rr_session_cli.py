@@ -1,12 +1,12 @@
 """CLI entry point.
 
 Usage:
-    uv run -m robots_realtime configs/sessions/yam_sim_dummy.yaml
-    uv run -m robots_realtime configs/sessions/yam_sim_dummy.yaml --no-tui
-    uv run -m robots_realtime configs/sessions/yam_sim_dummy.yaml --save-root /data/rec
+    pixi run rr-session configs/franka/franka_robotiq_viser_teleop.yaml
+    pixi run rr-session configs/franka/franka_robotiq_viser_teleop.yaml --no-tui
+    pixi run rr-session configs/franka/franka_robotiq_viser_teleop.yaml --save-root /data/rec
 
     # Legacy Python module path (backward compatibility):
-    uv run -m robots_realtime configs.sessions.yam_sim_dummy  --no-tui
+    pixi run python -m robots_realtime configs.franka.franka_robotiq_viser_teleop  --no-tui
 """
 
 from __future__ import annotations
@@ -44,9 +44,9 @@ def main() -> None:
     parser.add_argument(
         "session",
         help=(
-            "Path to a YAML session config file (e.g. configs/sessions/yam_sim_dummy.yaml), "
+            "Path to a YAML session config file (e.g. configs/franka/franka_robotiq_viser_teleop.yaml), "
             "or a dotted Python module path containing make_session() "
-            "(e.g. configs.sessions.yam_sim_dummy)."
+            "(e.g. configs.franka.franka_robotiq_viser_teleop)."
         ),
     )
     parser.add_argument(

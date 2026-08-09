@@ -67,13 +67,13 @@ policy.py). No env vars required for normal operation. Optional debug:
 
 ```bash
 # Diagnose recompilation:
-JAX_LOG_COMPILES=1 uv run scripts/serve_policy.py policy:named-checkpoint --policy.name ...
+JAX_LOG_COMPILES=1 pixi run python scripts/serve_policy.py policy:named-checkpoint --policy.name ...
 
 # Per-denoising-step RTC stats (adds host-device sync latency; keep off in prod):
-RTC_DEBUG=1 uv run scripts/serve_policy.py ...
+RTC_DEBUG=1 pixi run python scripts/serve_policy.py ...
 
 # Both:
-JAX_LOG_COMPILES=1 RTC_DEBUG=1 uv run scripts/serve_policy.py ...
+JAX_LOG_COMPILES=1 RTC_DEBUG=1 pixi run python scripts/serve_policy.py ...
 ```
 
 **Client**: in the YAML, set `inference_mode: async_rtc` on the
@@ -263,4 +263,4 @@ Client side (`~/robots_realtime`):
 | file | what lives there |
 |---|---|
 | `robots_realtime/agents/policy_learning/async_pi0_agent.py` | `AsyncDiffusionAgent` with the four inference modes; RTC prefix capture, padding, EMA delay, chunk-jump log |
-| `configs/yam/yam_bimanual_openpi_policy_xdof_hq.yaml` | example session wiring |
+| `configs/franka/franka_robotiq_client.yaml` | example session wiring |

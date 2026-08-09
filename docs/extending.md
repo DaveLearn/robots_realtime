@@ -51,23 +51,22 @@ version: "1"
 
 session:
   save_root: recordings
-  record_topic: gello_left/record   # bus topic that triggers record start/stop
+  record_topic: teleop_left/record  # bus topic that triggers record start/stop
   auto_record_duration: 10.0        # auto-record for N seconds then exit
 
 nodes:
   - type: AgentNode
-    name: gello_left
-    agent_class: robots_realtime.agents.teleoperation.gello_leader_agent:GelloLeaderAgent
+    name: teleop_left
+    agent_class: robots_realtime.agents.teleoperation.franka_pyroki_viser_agent:FrankaPyrokiViserAgent
     agent_kwargs:
-      port: /dev/ttyUSB0
-      robot_name: left
+      robotiq_gripper: true
     arm_key: left
     loop_mode: flat_out
 
   - type: RobotNode
-    name: yam_left
-    robot_config: robot_configs/yam/left.yaml
-    cmd_topic: gello_left/joint_pos
+    name: franka_left
+    robot_config: robot_configs/franka/franka_default_panda_gripper.yaml
+    cmd_topic: teleop_left/joint_pos
 
   - type: CameraNode
     name: camera_top

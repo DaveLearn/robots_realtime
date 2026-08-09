@@ -5,9 +5,9 @@ the logic from composite_episode_view_renderer.py), then tiles all episodes
 into a grid layout with episode labels.
 
 Usage:
-    uv run python scripts/grid_episode_viewer.py /path/to/day_dir
-    uv run python scripts/grid_episode_viewer.py /path/to/day_dir --cols 4 --cell-width 480
-    uv run python scripts/grid_episode_viewer.py /path/to/day_dir --output grid.mp4 --no-play
+    pixi run python scripts/grid_episode_viewer.py /path/to/day_dir
+    pixi run python scripts/grid_episode_viewer.py /path/to/day_dir --cols 4 --cell-width 480
+    pixi run python scripts/grid_episode_viewer.py /path/to/day_dir --output grid.mp4 --no-play
 """
 
 from __future__ import annotations

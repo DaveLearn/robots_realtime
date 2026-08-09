@@ -20,8 +20,7 @@ from robots_realtime.robots.viser.viser_base import ViserAbstractBase
 class FrankaPyroki(ViserAbstractBase):
     """Interactive Franka Panda inverse kinematics helper.
 
-    This class mirrors :class:`yam_realtime.robots.inverse_kinematics.yam_pyroki.YamPyroki`
-    but is specialised for a single (or optionally dual) Franka Panda arm described in
+    Specialised for a single (or optionally dual) Franka Panda arm described in
     ``robot_descriptions``. It exposes Viser transform gizmos for the desired end-effector
     target(s), solves IK with PyRoKi, and keeps track of the resulting joint targets.
     """

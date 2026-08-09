@@ -2,7 +2,6 @@
 Abstract base class for bimanual robot headless visualization.
 """
 
-import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -48,14 +47,14 @@ class ViserAbstractBase(ABC):
     Abstract base class for bimanual robot visualization.
     - This class provides common functionality for different IK solvers
     - Subclasses must implement the solve_ik method with their specific solver
-    - robot_description: the name of the robot description to load (default: yam_description)
+    - robot_description: the name of the robot description to load (default: panda_description)
     """
 
     def __init__(
         self,
         rate: float = 100.0,
         viser_server: Optional[viser.ViserServer] = None,
-        robot_description: str = "yam_description",
+        robot_description: str = "panda_description",
         bimanual: bool = False,
         coordinate_frame: Literal["base", "world"] = "base",
     ):
@@ -63,23 +62,9 @@ class ViserAbstractBase(ABC):
         self.bimanual = bimanual
         self.coordinate_frame = coordinate_frame
 
-        if robot_description == "yam_description":  # temporary fix for yam_description
-            # current path
-            current_path = os.path.dirname(os.path.abspath(__file__))
-            urdf_path = os.path.join(
-                current_path, "..", "..", "..", "dependencies", "i2rt", "i2rt", "robot_models", "yam", "yam.urdf"
-            )
-            mesh_dir = os.path.join(
-                current_path, "..", "..", "..", "dependencies", "i2rt", "i2rt", "robot_models", "yam", "assets"
-            )
-            self.urdf = yourdfpy.URDF.load(
-                urdf_path,
-                mesh_dir=mesh_dir,
-            )
-        else:
-            self.urdf = set_min_distance_from_limits(
-                load_urdf_robot_description(robot_description), min_distance_from_limits=0.25
-            )
+        self.urdf = set_min_distance_from_limits(
+            load_urdf_robot_description(robot_description), min_distance_from_limits=0.25
+        )
 
         self.viser_server = viser_server if viser_server is not None else viser.ViserServer()
 

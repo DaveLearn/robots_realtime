@@ -1,7 +1,7 @@
 """Side-by-side viewer: first frame of S3 LeRobot episodes vs. live camera.
 
 Usage:
-    uv run python scripts/compare_episode_camera.py \
+    pixi run python scripts/compare_episode_camera.py \
         --s3-path xdof-internal-research/repromo/hlm_tshirt_reward_select_lerobot_sarm_8stage \
         --camera-id 0 \
         --camera-views top left right
@@ -248,14 +248,11 @@ def resolve_camera_map(camera_config: str | None, views: list[str]) -> dict[str,
 
 # Candidate configs per arm, tried in order; the one whose CAN channel is
 # actually present on this machine wins. Keeps the script machine-agnostic.
-LEFT_ROBOT_CONFIGS = [
-    "robot_configs/yam/xdof_hq/left.yaml",
-    "robot_configs/yam/left.yaml",
-]
-RIGHT_ROBOT_CONFIGS = [
-    "robot_configs/yam/xdof_hq/right.yaml",
-    "robot_configs/yam/right.yaml",
-]
+# The YAM configs these used to point at went away with the i2rt dependency —
+# with both lists empty the viewer still works, only the "M" (move robot to
+# episode state) key is a no-op.
+LEFT_ROBOT_CONFIGS: list[str] = []
+RIGHT_ROBOT_CONFIGS: list[str] = []
 
 
 def available_can_channels() -> set[str]:

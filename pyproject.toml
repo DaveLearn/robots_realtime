@@ -10,28 +10,28 @@ readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "viser",
-    "tyro",
+    "tyro>=1.0.1",
     "omegaconf",
     "portal",
     "dm-env==1.6",
     "dm_control==1.0.30",
     "dotdict==0.1",
-    "numpy",
+    "numpy==1.26.4",
     "opencv-python",
     "robot_descriptions",
     "yourdfpy",
     "ruff",
+    # jaxls comes in transitively from pyroki, which requires it by unpinned git
+    # URL. We don't restate it here: pixi has no uv-style dependency overrides,
+    # so a second, pinned URL for the same package is a hard resolver conflict.
+    # pixi.lock pins the resolved jaxls commit instead.
     "pyroki @ git+https://github.com/chungmin99/pyroki.git@59aa21f",
-    "jaxls @ git+https://github.com/brentyi/jaxls.git@5f766d3",
     "matplotlib",
     "msgpack",
     "msgpack_numpy",
     "minimalmodbus",
-    "i2rt",
     "uvicorn",
     "fastapi",
-    "lerobot[feetech]",
-    "lerobot_teleoperator_yamactiveleader",
     "xdof_sdk",
     "gymnasium>=0.29",
     "pyzmq>=27.1.0",
@@ -47,14 +47,8 @@ rr-session = "robots_realtime.rr_session_cli:main"
 rr-replay  = "robots_realtime.rr_replay_cli:main"
 
 [project.optional-dependencies]
-sensors = [
-    "pyzed",
-]
 realsense = [
     "pyrealsense2>=2.55",
-]
-franka_panda = [
-    "panda_python",
 ]
 mjlab_sim = [
     "mjlab",
@@ -63,28 +57,57 @@ sim = [
     "gymnasium>=0.29",
 ]
 
-[tool.uv.sources]
-panda_python = { path = "dependencies/panda_py_0.7.5_libfranka_0.10.0/panda_python-0.7.5+libfranka.0.10.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" }
-pyzed = { path = "dependencies/pyzed-5.1-cp311-cp311-linux_x86_64.whl" }
-i2rt = { path = "dependencies/i2rt", editable = true }
-lerobot_teleoperator_yamactiveleader = { path = "dependencies/lerobot_teleoperator_yamactiveleader", editable = true }
+# ── pixi ──────────────────────────────────────────────────────────────────────
+# Conventions used below:
+#   * [tool.pixi.dependencies] holds conda packages only — the C/native
+#     libraries you would otherwise apt install (python itself, ffmpeg, GL).
+#   * everything Python lives in [project.dependencies] / the pypi tables.
+#   * extras declared in [project.optional-dependencies] become pixi features
+#     of the same name automatically; features for local wheels are defined
+#     explicitly here because those aren't resolvable from PyPI.
 
-[tool.uv]
-# ruckig 0.15.3's build config uses the deprecated `cmake.targets` key, which
-# scikit-build-core >= 0.10 rejects; pin the build backend below that.
-build-constraint-dependencies = [
-    "scikit-build-core<0.10",
-]
-override-dependencies = [
-    "numpy==1.26.4",
-    # mjlab requires mujoco>=3.5.0 and tyro>=1.0.1; override i2rt's hard pins.
-    # dm_control>=1.0.30 only needs mujoco>=3.3.2, so 3.5.0 is fine for all.
-    "mujoco>=3.5.0",
-    "tyro>=1.0.1",
-    # pyroki depends on an unpinned jaxls git URL, which conflicts with our
-    # pinned URL above; force the pinned revision across the whole graph.
-    "jaxls @ git+https://github.com/brentyi/jaxls.git@5f766d3",
-]
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.dependencies]
+python = "3.11.*"
+# lerobot / torchcodec decode video through the system ffmpeg libs.
+ffmpeg = "*"
+# OpenGL + EGL runtime for mujoco / opencv / viser mesh rendering.
+libgl-devel = "*"
+libegl-devel = "*"
+libglu = "*"
+# A few PyPI deps ship sdists only (e.g. pyliblzfse) and need a C toolchain
+# at install time — pixi environments don't see the system compiler.
+c-compiler = "*"
+
+[tool.pixi.pypi-dependencies]
+robots_realtime = { path = ".", editable = true }
+
+# panda_py / libfranka 0.10.0 for the Franka Panda — a local wheel, so it gets
+# its own feature rather than an entry in [project.optional-dependencies].
+[tool.pixi.feature.franka_panda.pypi-dependencies]
+panda_python = { path = "dependencies/panda_py_0.7.5_libfranka_0.10.0/panda_python-0.7.5+libfranka.0.10.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" }
+
+# The ZED bindings are deliberately NOT a resolved dependency: the pyzed 5.1
+# wheel declares numpy>=2, while openpi-client caps numpy below 2.0, so the two
+# cannot be co-resolved. uv papered over this with an override; pixi has none.
+# Install it into the environment ignoring that metadata instead:
+#     pixi run install-zed
+# numpy 1.26 is what the rest of the stack (and the previous uv env) uses.
+
+[tool.pixi.environments]
+# Franka is the hardware we actually run, so it's in the default environment.
+default = { features = ["franka_panda", "sim", "realsense"], solve-group = "main" }
+mjlab = { features = ["franka_panda", "sim", "mjlab_sim"] }
+
+[tool.pixi.tasks]
+session = "rr-session"
+replay = "rr-replay"
+lint = "ruff check ."
+fmt = "ruff format ."
+install-zed = "python -m pip install --no-deps --force-reinstall dependencies/pyzed-5.1-cp311-cp311-linux_x86_64.whl"
 
 [tool.setuptools.packages.find]
 where = ["."]

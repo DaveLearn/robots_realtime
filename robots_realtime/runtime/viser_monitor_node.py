@@ -24,17 +24,15 @@ YAML example::
       auto_open_browser: true
       fullscreen: true
       urdfs:
-        yam_left:
-          path: dependencies/i2rt/i2rt/robot_models/arm/yam/yam.urdf
-          state_topic: yam_left/joint_state
-          flip_joints: true      # YAM motor order is reversed vs URDF joint order
+        panda_left:
+          path: /path/to/panda.urdf
+          state_topic: panda_left/joint_state
           extrinsic:             # optional; omit for an identity pose
             position: [0.0, 0.0, 0.0]
             rotation: [1.0, 0.0, 0.0, 0.0]   # wxyz
-        yam_right:
-          path: dependencies/i2rt/i2rt/robot_models/arm/yam/yam.urdf
-          state_topic: yam_right/joint_state
-          flip_joints: true
+        panda_right:
+          path: /path/to/panda.urdf
+          state_topic: panda_right/joint_state
           extrinsic:
             position: [0.0, 0.5, 0.0]
             rotation: [1.0, 0.0, 0.0, 0.0]
@@ -62,52 +60,19 @@ from robots_realtime.sensors.cameras.camera_utils import resize_with_pad
 logger = logging.getLogger(__name__)
 
 
-# Gripper presets — poses and mesh paths scraped from the i2rt MJCF files.
+# Gripper presets — mesh paths plus the poses that place them.
 # We render three static sub-meshes (shell + two tips) attached to the arm's
 # attach_link. The two tips each sit inside a sub-frame whose position is
-# updated each step from the bus message's ``gripper_pos`` (normalized [0, 1]
-# where 0 = closed, 1 = open per i2rt's JointMapper convention).
+# updated each step from the bus message's ``gripper_pos`` (normalized [0, 1],
+# 0 = closed, 1 = open).
 #
-# To add a new gripper type, scrape the same fields from its MJCF file in
-# dependencies/i2rt/i2rt/robot_models/gripper/<type>/<type>.xml.
-_GRIPPER_I2RT_ROOT = "dependencies/i2rt/i2rt/robot_models/gripper"
-
-GRIPPER_PRESETS: dict[str, dict] = {
-    "linear_4310": {
-        "shell_stl":        f"{_GRIPPER_I2RT_ROOT}/linear_4310/assets/gripper.stl",
-        "tip_left_stl":     f"{_GRIPPER_I2RT_ROOT}/linear_4310/assets/tip_left.stl",
-        "tip_right_stl":    f"{_GRIPPER_I2RT_ROOT}/linear_4310/assets/tip_right.stl",
-        # Gripper-body frame pose relative to the arm's attach_link (URDF link_6).
-        #
-        # There's no clean algebraic derivation because the arm MJCF and arm URDF
-        # disagree on link_6's orientation — URDF has joint6 rpy=(-π/2, 0, 0),
-        # MJCF uses a 120° off-axis quat. The combine_arm_and_gripper_xml pipeline
-        # doesn't apply to URDF-based rendering. So these defaults are
-        # empirical: 180° about the joint6 axis (local Z) with zero offset.
-        # Tune `body_offset_pos` and `body_offset_quat_wxyz` from YAML per arm
-        # to dial in the final visual match.
-        "body_offset_pos":        (0.0, 0.0, 0.0),
-        "body_offset_quat_wxyz":  (0, 0.7071068, 0.7071068, 0 ),
-        # Shell mesh pose in the gripper-body frame.
-        "shell_pos":        (-0.014, -0.0463995, 0.0731),
-        "shell_quat_wxyz":  (1.0, 0.0, 0.0, 0.0),
-        # Tip-left body pose in gripper-body frame.
-        "tip_left_body_pos":      (-0.0238981, 0.0450619, -0.0545599),
-        "tip_left_body_quat_wxyz":(0.499998, -0.5, -0.5, -0.500002),
-        # Tip-left mesh pose in tip-left body frame (before slide).
-        "tip_left_mesh_pos":       (0.129783, 0.00999321, -0.0914614),
-        "tip_left_mesh_quat_wxyz": (0.499998, 0.5, 0.500002, 0.5),
-        # Tip-right body pose in gripper-body frame.
-        "tip_right_body_pos":      (0.0238981, -0.0450619, -0.0545599),
-        "tip_right_body_quat_wxyz":(0.707105, 0.707108, 0.0, 0.0),
-        # Tip-right mesh pose in tip-right body frame.
-        "tip_right_mesh_pos":       (-0.0379932, 0.129783, 0.00133753),
-        "tip_right_mesh_quat_wxyz": (0.707105, -0.707108, 0.0, 0.0),
-        # Slide motion: joint7/joint8 translate along local axis with range [0, 0.0475] m.
-        "slide_axis": (0.0, 0.0, -1.0),
-        "slide_range_m": 0.0475,
-    },
-}
+# A preset needs: shell_stl / tip_left_stl / tip_right_stl paths,
+# body_offset_{pos,quat_wxyz} (attach_link → gripper-body frame),
+# shell_{pos,quat_wxyz}, tip_{left,right}_body_{pos,quat_wxyz},
+# tip_{left,right}_mesh_{pos,quat_wxyz}, slide_axis and slide_range_m.
+# The YAM "linear_4310" preset was removed along with the i2rt dependency;
+# recover it from git history if a similar gripper is ever wired up again.
+GRIPPER_PRESETS: dict[str, dict] = {}
 
 
 class ViserMonitorNode(Node):
@@ -290,7 +255,7 @@ class ViserMonitorNode(Node):
         """
         import trimesh  # noqa: PLC0415 — dependency of viser anyway
 
-        gtype = gripper_spec.get("type", "linear_4310")
+        gtype = gripper_spec.get("type", "")
         if gtype not in GRIPPER_PRESETS:
             logger.warning(
                 "[%s] unknown gripper type %r; supported: %s",

@@ -12,9 +12,9 @@ Episode layout assumed (matches AsyncMp4Writer in robots_realtime/runtime/record
     camera_right-rgb-timestamp.npy
 
 Usage:
-    uv run python scripts/composite_episode_view_renderer.py /path/to/episode_dir
-    uv run python scripts/composite_episode_view_renderer.py /path/to/episode_dir --output composite.mp4
-    uv run python scripts/composite_episode_view_renderer.py /path/to/episode_dir --pip-scale 0.28 --no-play
+    pixi run python scripts/composite_episode_view_renderer.py /path/to/episode_dir
+    pixi run python scripts/composite_episode_view_renderer.py /path/to/episode_dir --output composite.mp4
+    pixi run python scripts/composite_episode_view_renderer.py /path/to/episode_dir --pip-scale 0.28 --no-play
 """
 
 from __future__ import annotations

@@ -28,8 +28,8 @@ import minimalmodbus as mm
 import numpy as np
 import serial
 import serial.tools.list_ports
-from i2rt.robots.robot import Robot
-from i2rt.utils.utils import RateRecorder
+from robots_realtime.robots.protocol import Robot
+from robots_realtime.utils.rate_recorder import RateRecorder
 
 from robots_realtime.robots.utils import Rate
 from robots_realtime.utils.performance_utils import set_realtime_and_pin

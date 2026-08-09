@@ -4,7 +4,7 @@ A research codebase for real-time robot teleoperation, data collection, and poli
 
 ### Why robots_realtime?
 - **Unified Pipeline:** Collect data in simulation or on real hardware platforms, and deploy learned policies with the same infrastructure.
-- **Modular Stack:** Switch between GELLO leader arms, IK gizmos, Franka or I2RT YAM robot hardware via runtime YAML configs.
+- **Modular Stack:** Switch between IK gizmos, Franka Panda hardware and simulated arms via runtime YAML configs.
 - **High Frequency:** Built with ZeroMQ nodes for asynchronous, low-latency real-time control.
 
 <table>
@@ -18,8 +18,6 @@ A research codebase for real-time robot teleoperation, data collection, and poli
 </tr>
 </table>
 
-To build your own YAM active leader arms refer to: [lerobot_teleoperator_yamactiveleader](https://github.com/uynitsuj/lerobot_teleoperator_yamactiveleader)
-
 ## Other Documentation
 [Architecture & recording format](docs/architecture.md) 
 
@@ -31,53 +29,60 @@ To build your own YAM active leader arms refer to: [lerobot_teleoperator_yamacti
 
 ## Installation
 
+Environments are managed with [pixi](https://pixi.sh); the manifest lives in
+`pyproject.toml` under `[tool.pixi.*]`. Conda packages cover the native
+libraries (Python, ffmpeg, OpenGL, a C toolchain), everything else resolves
+from PyPI.
+
 ```bash
 git clone --recurse-submodules https://github.com/uynitsuj/robots_realtime.git
 cd robots_realtime
 # if already cloned, or some of the submodules are incompletely cloned, run
 git submodule update --init --recursive
-uv venv --python 3.11 && uv pip install -e .
+pixi install
+```
+
+| Environment | Contents |
+| --- | --- |
+| `default` | core stack + Franka Panda (`panda_py` / libfranka 0.10.0) + RealSense + sim |
+| `mjlab` | same, with `mjlab` in place of RealSense for mjlab-backed sim |
+
+ZED cameras are a special case: the bundled `pyzed` 5.1 wheel declares
+`numpy>=2` while `openpi-client` caps numpy below 2.0, so the two can't be
+co-resolved. Install it ignoring that metadata (which is what the old uv
+override did implicitly):
+
+```bash
+pixi run install-zed
 ```
 
 ---
 
 ## Usage / Quickstart
-### I2RT YAM Configuration
-If using real-world I2RT YAM arms, configure YAM arms CAN chain according to instructions from the [I2RT repo](https://github.com/i2rt-robotics/i2rt)
 
-### Run a teleop session with YAM Followers and YAM Leaders
-#### Session Configuration
-```bash
-uv run rr-session configs/yam/yam_bimanual_yam_leader.yaml
-```
-
-### Run a teleop session with YAM Followers and custom [3d printed active leaders](https://github.com/uynitsuj/lerobot_teleoperator_yamactiveleader)
-```bash
-uv run rr-session configs/yam/yam_bimanual_gello_teleop.yaml
-```
-
-### Run a teleop session in sim using [3d printed leaders](https://github.com/uynitsuj/lerobot_teleoperator_yamactiveleader)
+### Run a Franka teleop session with Viser IK gizmos
 
 ```bash
-uv run rr-session configs/yam/yam_sim_gello_teleop.yaml
+pixi run rr-session configs/franka/franka_robotiq_viser_teleop.yaml
 ```
-Upon running any of the above configs, you should see the terminal populate with a rich TUI session:
+
+Upon running any of the configs, you should see the terminal populate with a rich TUI session:
 ```
 ╭─────────────────────────────── robots_realtime ────────────────────────────────╮
 │   NODE                STATUS             HZ    TOPICS                          │
-│   gello_left          ● live          255.8    joint_pos                       │
-│   gello_right         ● live          255.8    joint_pos                       │
-│   yam                 ● live           29.6    left_state, right_state         │
+│   viser_left          ● live          255.8    joint_pos                       │
+│   viser_right         ● live          255.8    joint_pos                       │
+│   arm                 ● live           29.6    left_state, right_state         │
 │ http://localhost:8765  (viser)  http://localhost:8012  (vr)                    │
 │ ────────────────────────────────────────────────────────────────────────────── │
 │ ○  idle                                      [r] record  [d] discard  [q] quit │
 │ ────────────────────────────────────────────────────────────────────────────── │
-│ [yam] ╭────── viser (listening *:8765) ───────╮                                │
-│ [yam] │             ╷                         │                                │
-│ [yam] │   HTTP      │ http://localhost:8765   │                                │
-│ [yam] │   Websocket │ ws://localhost:8765     │                                │
-│ [yam] │             ╵                         │                                │
-│ [yam] ╰───────────────────────────────────────╯                                │
+│ [arm] ╭────── viser (listening *:8765) ───────╮                                │
+│ [arm] │             ╷                         │                                │
+│ [arm] │   HTTP      │ http://localhost:8765   │                                │
+│ [arm] │   Websocket │ ws://localhost:8765     │                                │
+│ [arm] │             ╵                         │                                │
+│ [arm] ╰───────────────────────────────────────╯                                │
 │   logs: /tmp/rr_logs_7hhz62am                                                  │
 ╰────────────────────────────────────────────────────────────────────────────────╯
 ```
@@ -86,7 +91,7 @@ Look under `/configs` for other existing configs
 ### Replay an episode
 
 ```bash
-uv run rr-replay recordings/20260323/episode_175805_0473b1bc/
+pixi run rr-replay recordings/20260323/episode_175805_0473b1bc/
 ```
 
 Opens a Viser viewer at `http://localhost:8080`. For sim episodes you get two modes: **qpos** (exact, restores recorded state) and **physics** (re-simulates from actions). For real data, you get viser visualization of joint angles replayed on urdfs and other sensor streams (e.g. rgb).

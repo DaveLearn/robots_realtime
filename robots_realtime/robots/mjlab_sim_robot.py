@@ -26,7 +26,7 @@ from typing import Dict, Optional
 import mujoco
 import mujoco.viewer
 import numpy as np
-from i2rt.robots.robot import Robot
+from robots_realtime.robots.protocol import Robot
 
 
 class MjlabSimRobot(Robot):

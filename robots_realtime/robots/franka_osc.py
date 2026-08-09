@@ -7,8 +7,8 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 import panda_py
-from i2rt.robots.robot import Robot
-from i2rt.utils.utils import RateRecorder
+from robots_realtime.robots.protocol import Robot
+from robots_realtime.utils.rate_recorder import RateRecorder
 from panda_py import controllers
 from scipy.spatial.transform import Rotation as R
 

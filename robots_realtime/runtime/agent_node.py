@@ -43,7 +43,7 @@ class AgentNode(Node):
         agent:           Pre-built agent. If None, built from agent_class in setup().
         name:            Node name on the bus.
         agent_class:     Dotted import path, e.g.
-                         "robots_realtime.agents.teleoperation.gello_leader_agent:GelloLeaderAgent".
+                         "robots_realtime.agents.teleoperation.franka_pyroki_viser_agent:FrankaPyrokiViserAgent".
                          Used when loading from YAML.
         agent_kwargs:    Keyword arguments forwarded to agent_class().
         loop_mode:       "flat_out" | "fixed_rate" | "subscriber_driven".

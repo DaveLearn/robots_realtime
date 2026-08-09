@@ -255,7 +255,7 @@ class AsyncDiffusionAgent(PolicyAgent):
         except ImportError as exc:
             raise ImportError(
                 "AsyncDiffusionAgent requires `openpi_client`. Install it into this venv "
-                "before instantiating the agent (e.g. `uv pip install openpi-client`)."
+                "before instantiating the agent (e.g. `pixi add --pypi openpi-client`)."
             ) from exc
 
         self._image_tools = image_tools

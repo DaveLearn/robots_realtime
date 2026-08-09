@@ -13,7 +13,7 @@
    ```
 4. Run a sim session as normal:
    ```bash
-   uv run rr-session configs/sessions/yam_sim_gello_teleop.yaml
+   pixi run rr-session configs/franka/franka_robotiq_viser_teleop.yaml
    ```
 
 That's it. When a Quest is detected at startup, the node:
