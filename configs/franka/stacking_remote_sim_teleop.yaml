@@ -7,7 +7,12 @@
 # RemoteSimNode via launch_cmd); nothing here imports it. Drop launch_cmd to
 # attach to a sim server you started by hand.
 #
-# Episode flow (in the teleop window): N new scene -> R start -> stack -> R stop.
+# Each scene starts with the target block already in the closed gripper above
+# the tower at a random offset and yaw (sim-server --start-xy/--start-yaw/
+# --start-gap), so a demo is just: lower, place, release, retract. The teleop
+# node picks up its pose target from the sim state after every reset.
+#
+# Episode flow (in the teleop window): N new scene -> R start -> place -> R stop.
 # Discard the current episode with `d` in this terminal's TUI.
 version: "1"
 
@@ -27,3 +32,4 @@ nodes:
     name: teleop
     state_topic: sim/state
     image_topics: [sim/wrist_rgb, sim/third_person_rgb]
+    panel_size: [720, 540]   # 1.5x the node default; frames are 320x240 and upscaled

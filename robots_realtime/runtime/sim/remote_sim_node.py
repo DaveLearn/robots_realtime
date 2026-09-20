@@ -11,11 +11,17 @@ RPC (ZMQ REQ/REP, msgpack + msgpack_numpy, same encoding as the bus):
     {"cmd": "step", "action": [...]}   -> same as reset
 
 Published topics:
-    {name}/state        the sim's state dict, verbatim (recorded to MCAP as JSON)
+    {name}/state        the sim's state dict plus "reset_ts", the wall time of
+                        the reset that began the current episode (recorded to
+                        MCAP as JSON; lets consumers tell a fresh scene from a
+                        stale one and lets the exporter check an episode was
+                        not reset mid-recording)
     {name}/{cam}_rgb    {"frame": ndarray} per camera (recorded to MP4)
 
 Subscribed topics (from YAML):
-    cmd_topic    {"joint_pos": [...]}  action for the next step; held if absent
+    cmd_topic    {"joint_pos": [...]}  action for the next step; held if absent.
+                 Commands published before the last reset are ignored, so a
+                 reset that re-poses the robot is not undone by a stale target.
     reset_topic  any message           re-randomize the scene
 
 Session YAML example::
@@ -76,7 +82,8 @@ class RemoteSimNode(Node):
         self._cameras: list[str] = []
         self._fps: float = 20.0
         self._action: np.ndarray | None = None
-        self._last_reset_ts: float | None = None
+        self._last_reset_ts: float | None = None   # ts of the last honoured reset request
+        self._reset_ts: float = 0.0                # wall time the sim was last reset
         self._cam_writers: dict[str, AsyncMp4Writer] = {}
         self._save_dir: str = ""
         # start/stop_recording arrive on the control thread while step() runs on
@@ -101,15 +108,15 @@ class RemoteSimNode(Node):
         # Ignore any reset request that predates this node.
         if self._reset_topic:
             self._last_reset_ts = self.get_timestamp(self._reset_topic)
-        self._absorb(self._rpc({"cmd": "reset"}))
+        self._absorb(self._reset())
 
     def step(self) -> None:
         if self._paused:
             return
         if self._reset_requested():
-            obs = self._rpc({"cmd": "reset"})
+            obs = self._reset()
         else:
-            cmd = self.get_latest(self._cmd_topic) if self._cmd_topic else None
+            cmd = self._fresh_cmd()
             if cmd is not None and cmd.get("joint_pos") is not None:
                 self._action = np.asarray(cmd["joint_pos"], dtype=np.float64)
             obs = self._rpc({"cmd": "step", "action": self._action})
@@ -151,10 +158,24 @@ class RemoteSimNode(Node):
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
+    def _reset(self) -> dict:
+        obs = self._rpc({"cmd": "reset"})
+        self._reset_ts = time.time()
+        return obs
+
+    def _fresh_cmd(self) -> dict | None:
+        """Latest command, unless it predates the last reset."""
+        if not self._cmd_topic:
+            return None
+        ts = self.get_timestamp(self._cmd_topic)
+        if ts is None or ts <= self._reset_ts:
+            return None
+        return self.get_latest(self._cmd_topic)
+
     def _absorb(self, obs: dict) -> None:
         """Publish one observation; the action the sim consumed becomes the held action."""
         ts = time.time()
-        state = obs["state"]
+        state = dict(obs["state"], reset_ts=self._reset_ts)
         self._action = np.asarray(state["applied_action"], dtype=np.float64)
         with self._write_lock:
             self.publish("state", state, ts=ts)
