@@ -13,6 +13,7 @@ Controls (window focused, cursor captured):
     left click   toggle gripper open/closed
     R            start / stop recording an episode
     N            new scene (sim reset) — only while not recording
+    F            finish the episode, new scene, start recording the next one
     Esc          release / capture the cursor
 
 Published topics:
@@ -175,6 +176,7 @@ class FpsTeleopNode(Node):
         self._integrator: FpsIntegrator | None = None
         self._cfg = PANDA_HOME_Q.copy()
         self._want_record = False
+        self._chain: str | None = None  # F-key sequence state, see _advance_chain
         self._grabbed = True
         # Wall time of the reset we are waiting on; None = target is in sync.
         # Without a state topic there is nothing to sync to, so start in sync.
@@ -213,7 +215,9 @@ class FpsTeleopNode(Node):
         keys = pg.key.get_pressed()
         dx, dy = pg.mouse.get_rel() if self._grabbed else (0, 0)
         ts = time.time()
-        if self._sync_after is None or self._try_sync():  # else: input is discarded while the scene resets
+        synced = self._sync_after is None or self._try_sync()
+        self._advance_chain(synced)
+        if synced:  # else: input is discarded while the scene resets
             self._integrator.update(
                 dx, dy,
                 lateral=float(keys[pg.K_d]) - float(keys[pg.K_a]),
@@ -238,17 +242,35 @@ class FpsTeleopNode(Node):
             self._set_grab(not self._grabbed)
         elif key == pg.K_r:
             self._want_record = not self._want_record
+            self._chain = None
         elif key == pg.K_n:
             if self._recording or self._want_record:
                 logger.warning("[%s] stop recording before resetting the scene", self.name)
                 return
-            ts = time.time()
-            self.publish("reset", {}, ts=ts, record=False)
-            if self._state_topic:
-                self._sync_after = ts
-            else:
-                self._integrator.reset()
-                self._cfg = PANDA_HOME_Q.copy()
+            self._request_new_scene()
+        elif key == pg.K_f:
+            # finish the episode, reset, record the next one — sequenced in
+            # step() because the session confirms the stop asynchronously
+            self._want_record = False
+            self._chain = "reset"
+
+    def _request_new_scene(self) -> None:
+        ts = time.time()
+        self.publish("reset", {}, ts=ts, record=False)
+        if self._state_topic:
+            self._sync_after = ts
+        else:
+            self._integrator.reset()
+            self._cfg = PANDA_HOME_Q.copy()
+
+    def _advance_chain(self, synced: bool) -> None:
+        """F-key sequence: stop -> (episode closed) reset -> (new scene synced) record."""
+        if self._chain == "reset" and not self._recording:
+            self._request_new_scene()
+            self._chain = "record"
+        elif self._chain == "record" and synced and self._sync_after is None:
+            self._want_record = True
+            self._chain = None
 
     def _set_grab(self, grab: bool) -> None:
         self._grabbed = grab
@@ -316,11 +338,13 @@ class FpsTeleopNode(Node):
         rec = "REC" if self._recording else ("rec pending" if self._want_record else "idle")
         if self._sync_after is not None:
             rec += " | waiting for new scene"
+        if self._chain is not None:
+            rec += " | F: next episode..."
         lines = [
             f"[{rec}]  grip {'open' if it.grip_open else 'CLOSED'}  "
             f"pos {it.pos[0]:+.3f} {it.pos[1]:+.3f} {it.pos[2]:+.3f}  yaw {np.degrees(it.yaw):+.0f} deg"
             f"{'' if self._grabbed else '   [cursor released - Esc to capture]'}",
-            "mouse: fwd/back + yaw   A/D: left/right   W/S: down/up   click: gripper   R: record   N: new scene   Esc: cursor",
+            "mouse: fwd/back + yaw   A/D: left/right   W/S: down/up   click: gripper   R: record   N: new scene   F: next episode   Esc: cursor",
         ]
         for j, text in enumerate(lines):
             color = (255, 80, 80) if (j == 0 and self._recording) else (220, 220, 220)
