@@ -24,7 +24,7 @@ nodes:
   - type: robots_realtime.runtime.sim.remote_sim_node:RemoteSimNode
     name: sim
     endpoint: tcp://127.0.0.1:5600
-    launch_cmd: "pixi run --manifest-path ../../control_sufficient_physics/pyproject.toml sim-server --preset easy --port 5600"
+    launch_cmd: "pixi run --manifest-path ../../control_sufficient_physics/pyproject.toml sim-server --preset medium --port 5600"
     cmd_topic: teleop/joint_target
     reset_topic: teleop/reset
 
