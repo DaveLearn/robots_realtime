@@ -33,3 +33,4 @@ nodes:
     state_topic: sim/state
     image_topics: [sim/wrist_rgb, sim/third_person_rgb]
     panel_size: [720, 540]   # 1.5x the node default; frames are 320x240 and upscaled
+    # ui_scale: 2.0          # HiDPI: multiplies panels, text bar and font (or export RR_UI_SCALE=2)

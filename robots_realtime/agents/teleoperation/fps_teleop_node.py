@@ -43,6 +43,8 @@ import logging
 import time
 from dataclasses import dataclass, field
 
+import os
+
 import numpy as np
 
 from robots_realtime.runtime.node import Node, NodeRole
@@ -146,6 +148,7 @@ class FpsTeleopNode(Node):
         image_topics: list[str] | None = None,
         rate_hz: float = 20.0,
         panel_size: tuple[int, int] = (480, 360),
+        ui_scale: float | None = None,
         mouse_gain: float = 0.0005,
         mouse_yaw_gain: float = 0.002,
         xy_speed: float = 0.15,
@@ -163,7 +166,15 @@ class FpsTeleopNode(Node):
         super().__init__(name=name, writer=writer, **kwargs)
 
         self._dt = 1.0 / rate_hz
-        self._panel_size = tuple(panel_size)
+        # pygame/SDL sizes windows in physical pixels and ignores desktop
+        # scaling, so on a HiDPI display everything renders at half size.
+        # ui_scale multiplies panels, text bar and font; RR_UI_SCALE sets it
+        # per machine without editing the session YAML.
+        if ui_scale is None:
+            ui_scale = float(os.environ.get("RR_UI_SCALE", "1.0"))
+        self._ui_scale = float(ui_scale)
+        self._panel_size = (round(panel_size[0] * self._ui_scale), round(panel_size[1] * self._ui_scale))
+        self._bar = round(72 * self._ui_scale)
         self._gains = dict(mouse_gain=mouse_gain, mouse_yaw_gain=mouse_yaw_gain,
                            xy_speed=xy_speed, z_speed=z_speed, yaw_speed=yaw_speed)
         self._workspace = (np.asarray(workspace_lo, float), np.asarray(workspace_hi, float))
@@ -198,9 +209,9 @@ class FpsTeleopNode(Node):
         self._pg = pygame
         pygame.init()
         w, h = self._panel_size
-        self._screen = pygame.display.set_mode((w * max(1, len(self._image_topics)), h + 72))
+        self._screen = pygame.display.set_mode((w * max(1, len(self._image_topics)), h + self._bar))
         pygame.display.set_caption(f"{self.name} — FPS teleop")
-        self._font = pygame.font.SysFont("monospace", 15)
+        self._font = pygame.font.SysFont("monospace", round(15 * self._ui_scale))
         self._set_grab(True)
 
     def step(self) -> None:
@@ -348,14 +359,15 @@ class FpsTeleopNode(Node):
         ]
         for j, text in enumerate(lines):
             color = (255, 80, 80) if (j == 0 and self._recording) else (220, 220, 220)
-            self._screen.blit(self._font.render(text, True, color), (8, h + 10 + 24 * j))
+            k = self._ui_scale
+            self._screen.blit(self._font.render(text, True, color), (round(8 * k), h + round((10 + 24 * j) * k)))
         pg.display.flip()
 
     @classmethod
     def build_kwargs(cls, params: dict) -> dict:
         kw = {"name": params["name"]}
         for key in (
-            "state_topic", "image_topics", "rate_hz", "panel_size",
+            "state_topic", "image_topics", "rate_hz", "panel_size", "ui_scale",
             "mouse_gain", "mouse_yaw_gain", "xy_speed", "z_speed", "yaw_speed", "workspace_lo", "workspace_hi",
         ):
             if key in params:
